@@ -12,15 +12,15 @@ import java.net.URL
 class GoldRateService : SuspendingComplicationDataSourceService() {
 
     override fun getPreviewData(type: ComplicationType): ComplicationData? {
-        val sample = "22K: ₹14,170 | 24K: ₹15,458"
+        val sample = "22K : ₹14,185 | 24K : ₹15,475"
         return when (type) {
             ComplicationType.LONG_TEXT -> LongTextComplicationData.Builder(
                 PlainComplicationText.Builder(sample).build(),
                 PlainComplicationText.Builder("Gold Rate").build()
             ).build()
             ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(
-                PlainComplicationText.Builder("₹14,170").build(),
-                PlainComplicationText.Builder("22K").build()
+                PlainComplicationText.Builder(sample).build(),
+                PlainComplicationText.Builder("Gold").build()
             ).build()
             else -> null
         }
@@ -35,7 +35,22 @@ class GoldRateService : SuspendingComplicationDataSourceService() {
                 conn.requestMethod = "GET"
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(body)
-                json.optString("both", "Rates loading...")
+
+                // Agar JSON me separate keys hain:
+                val r22 = json.optString("rate22k", "").ifEmpty { json.optString("k22", "") }
+                val r24 = json.optString("rate24k", "").ifEmpty { json.optString("k24", "") }
+
+                if (r22.isNotEmpty() && r24.isNotEmpty()) {
+                    "22K : ₹$r22 | 24K : ₹$r24"
+                } else {
+                    // Agar 'both' key me pehle se text hai, formatting normalize karein
+                    val rawBoth = json.optString("both", "")
+                    if (rawBoth.isNotEmpty()) {
+                        rawBoth.replace("22K:", "22K : ").replace("24K:", "24K : ")
+                    } else {
+                        "Rates loading..."
+                    }
+                }
             } catch (e: Exception) {
                 "Rate update error"
             }
@@ -47,7 +62,7 @@ class GoldRateService : SuspendingComplicationDataSourceService() {
                 PlainComplicationText.Builder("Gold Rate").build()
             ).build()
             ComplicationType.SHORT_TEXT -> ShortTextComplicationData.Builder(
-                PlainComplicationText.Builder(rateText.split("|").firstOrNull()?.trim() ?: rateText).build(),
+                PlainComplicationText.Builder(rateText).build(),
                 PlainComplicationText.Builder("Gold").build()
             ).build()
             else -> null
