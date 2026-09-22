@@ -36,21 +36,26 @@ class GoldRateService : SuspendingComplicationDataSourceService() {
                 val body = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(body)
 
-                // Agar JSON me separate keys hain:
-                val r22 = json.optString("rate22k", "").ifEmpty { json.optString("k22", "") }
-                val r24 = json.optString("rate24k", "").ifEmpty { json.optString("k24", "") }
+                // Worker se 'both' field nikalna
+                var text = json.optString("both", "")
 
-                if (r22.isNotEmpty() && r24.isNotEmpty()) {
-                    "22K : ₹$r22 | 24K : ₹$r24"
-                } else {
-                    // Agar 'both' key me pehle se text hai, formatting normalize karein
-                    val rawBoth = json.optString("both", "")
-                    if (rawBoth.isNotEmpty()) {
-                        rawBoth.replace("22K:", "22K : ").replace("24K:", "24K : ")
-                    } else {
-                        "Rates loading..."
-                    }
+                if (text.isEmpty()) {
+                    // Agar 'both' na ho to alag keys check karna
+                    val r22 = json.optString("rate22k", "").ifEmpty { json.optString("k22", "") }
+                    val r24 = json.optString("rate24k", "").ifEmpty { json.optString("k24", "") }
+                    text = "$r22 | $r24"
                 }
+
+                // Extra prefixes aur symbols saaf karke exact spacing banana
+                text = text.replace("22K:", "22K : ")
+                           .replace("22k:", "22K : ")
+                           .replace("24K:", "24K : ")
+                           .replace("24k:", "24K : ")
+                           // Agar double ₹ aa gaya ho toh single karna
+                           .replace("₹₹", "₹")
+                           .trim()
+
+                if (text.isNotEmpty()) text else "Rates loading..."
             } catch (e: Exception) {
                 "Rate update error"
             }
